@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#0a0a0a">
+  <title>DriftCall — Owner Panel</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="splash" id="splash">
+    <div class="brand">
+      <h1>DriftCall</h1>
+      <p>Owner panel</p>
+    </div>
+    <div class="card">
+      <div class="owner-info">
+        <p>Press "Go Live" to join the storefront room. Keep this page open all day — customers will appear automatically.</p>
+        <div class="room-badge">Room: storefront</div>
+      </div>
+      <button class="btn btn-primary" id="goLiveBtn">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15.05 5A5 5 0 0 1 19 8.95M15.05 1A9 9 0 0 1 23 8.94"/><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.362 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.338 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+        Go Live
+      </button>
+      <div class="status" id="status"></div>
+    </div>
+  </div>
+
+  <!-- Video -->
+  <div class="video-container" id="videoContainer">
+    <div class="video-wrapper">
+      <video id="remoteVideo" autoplay playsinline muted></video>
+      <div class="local-tile">
+        <video id="localVideo" autoplay playsinline muted></video>
+      </div>
+    </div>
+    <div class="participants" id="participants"></div>
+    <div class="video-controls">
+      <button class="btn btn-ghost" id="camToggle">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
+        Camera
+      </button>
+      <button class="btn btn-ghost" id="micToggle">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+        Mic
+      </button>
+      <button class="btn btn-danger" id="hangupBtn">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10.68 13.31a16 16 0 0 0 6.93 6.93l1.23-1.23a2 2 0 0 1 2.6-.22 2 2 0 0 1 .78 1.72v2.66a2 2 0 0 1-1.7 1.98A20 20 0 0 1 2 12a20 20 0 0 1 20-20c1.1 0 2.1.9 2 2a2 2 0 0 1-.22 2.6l-1.23 1.23z"/></svg>
+        End Day
+      </button>
+    </div>
+  </div>
+
+  <script type="module">
+    import { Room, RoomEvent, Track } from 'https://cdn.jsdelivr.net/npm/livekit-client@2/+esm';
+
+    const splash = document.getElementById('splash');
+    const videoContainer = document.getElementById('videoContainer');
+    const goLiveBtn = document.getElementById('goLiveBtn');
+    const statusEl = document.getElementById('status');
+    const remoteVideo = document.getElementById('remoteVideo');
+    const localVideo = document.getElementById('localVideo');
+    const participantsEl = document.getElementById('participants');
+    const camToggle = document.getElementById('camToggle');
+    const micToggle = document.getElementById('micToggle');
+    const hangupBtn = document.getElementById('hangupBtn');
+
+    let room = null;
+    let isCameraOn = true;
+    let isMicOn = true;
+
+    // Fetch LiveKit token
+    async function getOwnerToken() {
+      const resp = await fetch('/.netlify/functions/token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          identity: 'owner_' + Date.now(),
+          room: 'storefront',
+        }),
+      });
+      if (!resp.ok) throw new Error('Failed to get owner token');
+      const data = await resp.json();
+      return data.token;
+    }
+
+    // Go Live
+    async function goLive() {
+      goLiveBtn.disabled = true;
+      goLiveBtn.innerHTML = '<span class="spinner"></span> Connecting...';
+      statusEl.textContent = 'Requesting camera access...';
+      statusEl.className = 'status';
+
+      try {
+        const token = await getOwnerToken();
+
+        room = new Room({
+          adaptiveCodec: true,
+          resumeAttempts: 0,
+        });
+
+        // Remote participant joined → show their video
+        room.on(RoomEvent.TrackSubscribed, (track, publication, participant) => {
+          if (publication.track === Track.VIDEO) {
+            remoteVideo.srcObject = new MediaStream([track.mediaStreamTrack]);
+          }
+          statusEl.textContent = 'Customer is live!';
+          statusEl.className = 'status connected';
+        });
+
+        // Remote participant left
+        room.on(RoomEvent.TrackUnsubscribed, (track, publication, participant) => {
+          if (room?.remoteParticipants.size === 0) {
+            statusEl.textContent = 'Waiting for customer...';
+            statusEl.className = 'status';
+          }
+        });
+
+        room.on(RoomEvent.ParticipantDisconnected, () => {
+          if (room?.remoteParticipants.size === 0) {
+            statusEl.textContent = 'Customer disconnected';
+            statusEl.className = 'status';
+          }
+        });
+
+        room.on(RoomEvent.Disconnected, () => {
+          statusEl.textContent = 'Disconnected';
+          statusEl.className = 'status';
+        });
+
+        room.on(RoomEvent.Error, (err) => {
+          console.error('Room error:', err);
+        });
+
+        // Track participant list updates
+        room.on(RoomEvent.ParticipantsChanged, () => {
+          renderParticipants();
+        });
+
+        statusEl.textContent = 'Connecting to call...';
+
+        await room.connect(
+          window.location.origin.includes('localhost')
+            ? (import.meta.env?.LIVEKIT_URL || 'wss://YOUR_LIVEKIT_INSTANCE.livekit.cloud')
+            : (import.meta.env?.LIVEKIT_URL || 'wss://YOUR_LIVEKIT_INSTANCE.livekit.cloud')
+        );
+
+        await room.localParticipant.setCameraEnabled(true);
+        await room.localParticipant.setMicrophoneEnabled(true);
+
+        splash.style.display = 'none';
+        videoContainer.classList.add('active');
+
+        const localPub = room.localParticipant.getTrackPublication(Track.VIDEO);
+        if (localPub?.track) {
+          localVideo.srcObject = new MediaStream([localPub.track.mediaStreamTrack]);
+        }
+
+        renderParticipants();
+        statusEl.textContent = 'You are live — waiting for customers';
+        statusEl.className = 'status connected';
+
+      } catch (err) {
+        console.error('Go Live failed:', err);
+        statusEl.textContent = 'Error: ' + err.message;
+        statusEl.className = 'status error';
+        goLiveBtn.disabled = false;
+        goLiveBtn.innerHTML = `
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15.05 5A5 5 0 0 1 19 8.95M15.05 1A9 9 0 0 1 23 8.94"/><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.362 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.338 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+          Go Live
+        `;
+      }
+    }
+
+    // Render participant chips
+    function renderParticipants() {
+      if (!room) return;
+      const allParticipants = [
+        { identity: room.localParticipant.identity, isLocal: true },
+        ...Array.from(room.remoteParticipants.values()).map(p => ({
+          identity: p.identity,
+          isLocal: false,
+        })),
+      ];
+
+      participantsEl.innerHTML = allParticipants.map(p => `
+        <span class="participant-chip">
+          <span class="dot"></span>
+          ${p.identity}
+        </span>
+      `).join('');
+    }
+
+    // Camera toggle
+    camToggle.addEventListener('click', async () => {
+      if (!room) return;
+      const pub = room.localParticipant.getTrackPublication(Track.VIDEO);
+      if (pub) {
+        isCameraOn = !isCameraOn;
+        await pub.setEnabled(isCameraOn);
+        camToggle.style.opacity = isCameraOn ? '1' : '0.5';
+      }
+    });
+
+    // Mic toggle
+    micToggle.addEventListener('click', async () => {
+      if (!room) return;
+      const pub = room.localParticipant.getTrackPublication(Track.AUDIO);
+      if (pub) {
+        isMicOn = !isMicOn;
+        await pub.setEnabled(isMicOn);
+        micToggle.style.opacity = isMicOn ? '1' : '0.5';
+      }
+    });
+
+    // Hang up
+    hangupBtn.addEventListener('click', () => {
+      if (room) {
+        room.disconnect();
+        room = null;
+      }
+      videoContainer.classList.remove('active');
+      splash.style.display = 'flex';
+      statusEl.textContent = '';
+      statusEl.className = 'status';
+      goLiveBtn.disabled = false;
+      goLiveBtn.innerHTML = `
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15.05 5A5 5 0 0 1 19 8.95M15.05 1A9 9 0 0 1 23 8.94"/><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.362 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.338 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+        Go Live
+      `;
+    });
+
+    goLiveBtn.addEventListener('click', goLive);
+  </script>
+</body>
+</html>

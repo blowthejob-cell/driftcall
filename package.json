@@ -1,0 +1,12 @@
+{
+  "name": "driftcall",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "netlify dev",
+    "build": "echo 'No build step needed'"
+  },
+  "dependencies": {
+    "livekit-server-sdk": "^2.x"
+  }
+}
