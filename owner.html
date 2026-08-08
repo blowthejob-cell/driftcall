@@ -29,7 +29,7 @@
   <!-- Video -->
   <div class="video-container" id="videoContainer">
     <div class="video-wrapper">
-      <video id="remoteVideo" autoplay playsinline muted></video>
+      <video id="remoteVideo" autoplay playsinline></video>
       <div class="local-tile">
         <video id="localVideo" autoplay playsinline muted></video>
       </div>
@@ -101,9 +101,7 @@
 
         // Remote participant joined → show their video
         room.on(RoomEvent.TrackSubscribed, (track, publication, participant) => {
-          if (publication.track === Track.VIDEO) {
-            remoteVideo.srcObject = new MediaStream([track.mediaStreamTrack]);
-          }
+          track.attach(remoteVideo);
           statusEl.textContent = 'Customer is live!';
           statusEl.className = 'status connected';
         });

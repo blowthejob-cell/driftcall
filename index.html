@@ -35,7 +35,7 @@
   <!-- Video -->
   <div class="video-container" id="videoContainer">
     <div class="video-wrapper">
-      <video id="remoteVideo" autoplay playsinline muted></video>
+      <video id="remoteVideo" autoplay playsinline></video>
       <div class="local-tile">
         <video id="localVideo" autoplay playsinline muted></video>
       </div>
@@ -134,14 +134,7 @@
 
         // Remote participant joined → show their video
         room.on(RoomEvent.TrackSubscribed, (track, publication, participant) => {
-          if (publication.track === Track.VIDEO) {
-            remoteVideo.srcObject = new MediaStream([track.mediaStreamTrack]);
-          } else if (publication.track === Track.AUDIO) {
-            track.mediaStreamTrack.addEventListener('ended', () => {});
-            const audio = new AudioContext();
-            const source = audio.createMediaStreamSource(new MediaStream([track.mediaStreamTrack]));
-            source.connect(audio.destination);
-          }
+          track.attach(remoteVideo);
         });
 
         // Remote participant left
