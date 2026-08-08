@@ -169,7 +169,7 @@
         );
 
         // Enable camera (front-facing) and mic
-        await room.localParticipant.setCameraEnabled(true);
+        const videoPub = await room.localParticipant.setCameraEnabled(true);
         await room.localParticipant.setMicrophoneEnabled(true);
 
         // Show video UI
@@ -177,9 +177,8 @@
         videoContainer.classList.add('active');
 
         // Attach local video
-        const localVideoTrack = room.localParticipant.getTrackPublication(Track.VIDEO)?.track;
-        if (localVideoTrack) {
-          localVideo.srcObject = new MediaStream([localVideoTrack.mediaStreamTrack]);
+        if (videoPub?.track) {
+          localVideo.srcObject = new MediaStream([videoPub.track.mediaStreamTrack]);
         }
 
         statusEl.textContent = 'You are live — the store owner can see you';

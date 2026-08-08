@@ -144,15 +144,14 @@
           token
         );
 
-        await room.localParticipant.setCameraEnabled(true);
+        const videoPub = await room.localParticipant.setCameraEnabled(true);
         await room.localParticipant.setMicrophoneEnabled(true);
 
         splash.style.display = 'none';
         videoContainer.classList.add('active');
 
-        const localPub = room.localParticipant.getTrackPublication(Track.VIDEO);
-        if (localPub?.track) {
-          localVideo.srcObject = new MediaStream([localPub.track.mediaStreamTrack]);
+        if (videoPub?.track) {
+          localVideo.srcObject = new MediaStream([videoPub.track.mediaStreamTrack]);
         }
 
         renderParticipants();
