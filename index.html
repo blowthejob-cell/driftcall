@@ -81,12 +81,12 @@
 
     // Save phone to Supabase
     async function savePhone(phone) {
-      const resp = await fetch('https://YOUR_PROJECT_ID.supabase.co/rest/v1/call_sessions', {
+      const resp = await fetch('https://nnlfnfaywjenuhtazost.supabase.co/rest/v1/call_sessions', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'apikey': 'YOUR_ANON_KEY',
-          'Authorization': 'Bearer YOUR_ANON_KEY',
+          'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5ubGZuZmF5d2plbnVodGF6b3N0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODYxMTY0NzUsImV4cCI6MjEwMTY5MjQ3NX0.s8-4BzbKSwWDe7yEVAH03xCi2-_vQh61TDFOCsobI2k',
+          'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5ubGZuZmF5d2plbnVodGF6b3N0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODYxMTY0NzUsImV4cCI6MjEwMTY5MjQ3NX0.s8-4BzbKSwWDe7yEVAH03xCi2-_vQh61TDFOCsobI2k',
         },
         body: JSON.stringify({ phone }),
       });
