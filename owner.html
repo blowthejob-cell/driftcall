@@ -28,6 +28,10 @@
 
   <!-- Video -->
   <div class="video-container" id="videoContainer">
+    <div class="incoming-call-banner" id="incomingCallBanner" style="display:none; position:absolute; top:0; left:0; right:0; z-index:50; background:rgba(0,0,0,0.85); color:#fff; padding:16px; text-align:center;">
+      <p style="margin:0 0 10px; font-size:16px;">Incoming call from a customer</p>
+      <button class="btn btn-primary" id="answerBtn">Answer</button>
+    </div>
     <div class="video-wrapper">
       <video id="remoteVideo" autoplay playsinline></video>
       <div class="local-tile">
@@ -64,10 +68,49 @@
     const camToggle = document.getElementById('camToggle');
     const micToggle = document.getElementById('micToggle');
     const hangupBtn = document.getElementById('hangupBtn');
+    const answerBtn = document.getElementById('answerBtn');
+    const incomingCallBanner = document.getElementById('incomingCallBanner');
 
     let room = null;
     let isCameraOn = true;
     let isMicOn = true;
+    let ringInterval = null;
+    let pendingTracks = [];
+    let callAnswered = false;
+
+    function playRing() {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const now = ctx.currentTime;
+      [0, 0.4, 0.8].forEach((offset) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(880, now + offset);
+        gain.gain.setValueAtTime(0.3, now + offset);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + offset + 0.3);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(now + offset);
+        osc.stop(now + offset + 0.3);
+      });
+    }
+    function startRinging() {
+      if (ringInterval) return;
+      playRing();
+      ringInterval = setInterval(playRing, 2000);
+    }
+    function stopRinging() {
+      if (ringInterval) {
+        clearInterval(ringInterval);
+        ringInterval = null;
+      }
+    }
+    function showIncomingBanner() {
+      incomingCallBanner.style.display = 'block';
+    }
+    function hideIncomingBanner() {
+      incomingCallBanner.style.display = 'none';
+    }
 
     // Fetch LiveKit token
     async function getOwnerToken() {
@@ -99,32 +142,22 @@
           resumeAttempts: 0,
         });
 
-        // Play a ring tone to alert the owner a customer has joined
-        function playRing() {
-          const ctx = new (window.AudioContext || window.webkitAudioContext)();
-          const now = ctx.currentTime;
-          [0, 0.4, 0.8].forEach((offset) => {
-            const osc = ctx.createOscillator();
-            const gain = ctx.createGain();
-            osc.type = 'sine';
-            osc.frequency.setValueAtTime(880, now + offset);
-            gain.gain.setValueAtTime(0.3, now + offset);
-            gain.gain.exponentialRampToValueAtTime(0.001, now + offset + 0.3);
-            osc.connect(gain);
-            gain.connect(ctx.destination);
-            osc.start(now + offset);
-            osc.stop(now + offset + 0.3);
-          });
-        }
         room.on(RoomEvent.ParticipantConnected, () => {
-          playRing();
+          callAnswered = false;
+          pendingTracks = [];
+          showIncomingBanner();
+          startRinging();
+          statusEl.textContent = 'Incoming call...';
+          statusEl.className = 'status';
         });
 
         // Remote participant joined → show their video
         room.on(RoomEvent.TrackSubscribed, (track, publication, participant) => {
-          track.attach(remoteVideo);
-          statusEl.textContent = 'Customer is live!';
-          statusEl.className = 'status connected';
+          if (callAnswered) {
+            track.attach(remoteVideo);
+          } else {
+            pendingTracks.push(track);
+          }
         });
 
         // Remote participant left
@@ -136,6 +169,10 @@
         });
 
         room.on(RoomEvent.ParticipantDisconnected, () => {
+          stopRinging();
+          hideIncomingBanner();
+          callAnswered = false;
+          pendingTracks = [];
           if (room?.remoteParticipants.size === 0) {
             statusEl.textContent = 'Customer disconnected';
             statusEl.className = 'status';
@@ -228,6 +265,17 @@
         await pub.setEnabled(isMicOn);
         micToggle.style.opacity = isMicOn ? '1' : '0.5';
       }
+    });
+
+    // Answer incoming call
+    answerBtn.addEventListener('click', () => {
+      stopRinging();
+      hideIncomingBanner();
+      callAnswered = true;
+      pendingTracks.forEach(track => track.attach(remoteVideo));
+      pendingTracks = [];
+      statusEl.textContent = 'Customer is live!';
+      statusEl.className = 'status connected';
     });
 
     // Hang up
