@@ -140,9 +140,8 @@
         statusEl.textContent = 'Connecting to call...';
 
         await room.connect(
-          window.location.origin.includes('localhost')
-            ? (import.meta.env?.LIVEKIT_URL || 'wss://driftcall-a4yazf14.livekit.cloud')
-            : (import.meta.env?.LIVEKIT_URL || 'wss://driftcall-a4yazf14.livekit.cloud')
+          'wss://driftcall-a4yazf14.livekit.cloud',
+          token
         );
 
         await room.localParticipant.setCameraEnabled(true);
